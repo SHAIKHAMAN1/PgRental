@@ -143,30 +143,32 @@ export const togglePgAvailability = async (req, res) => {
     const pg = await Pg.findById(pgId);
 
     if (!pg) {
-      return res.json({
+      return res.status(404).json({
         success: false,
         message: "PG not found"
       });
     }
 
-    if (pg.owner.toString() !== req.user.id) {
-      return res.json({
+    // ✅ safest ObjectId comparison
+    if (!pg.owner.equals(req.user._id)) {
+      return res.status(403).json({
         success: false,
         message: "Unauthorized"
       });
     }
 
+    // 🔥 force toggle
     pg.isAvailable = !pg.isAvailable;
+
     await pg.save();
 
-    res.json({
+    return res.status(200).json({
       success: true,
-      message: "Availability updated",
       isAvailable: pg.isAvailable
     });
 
   } catch (error) {
-    res.json({
+    return res.status(500).json({
       success: false,
       message: error.message
     });

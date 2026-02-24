@@ -1,39 +1,35 @@
 import Pg from "../models/Pg.js";
 import Booking from "../models/Booking.js";
 
-/* ===========================
-   Helpers
-=========================== */
+/* Helpers */
 
-// Validate room type
 const isValidRoomType = (type) =>
   ["single", "double", "triple"].includes(type);
 
-// Get PG safely
 const getPg = async (pgId) => {
   const pg = await Pg.findById(pgId);
   if (!pg) throw new Error("PG not found");
   return pg;
 };
 
-/* ===========================
-   Check Availability
-=========================== */
+/* Check Availability */
+
 export const checkAvailability = async (req, res) => {
   try {
     const { pgId, roomType } = req.body;
 
     if (!pgId || !roomType)
-      return res.json({ success: false, message: "pgId & roomType required" });
+      return res.status(400).json({ success: false, message: "pgId & roomType required" });
 
     if (!isValidRoomType(roomType))
-      return res.json({ success: false, message: "Invalid room type" });
+      return res.status(400).json({ success: false, message: "Invalid room type" });
 
     const pg = await getPg(pgId);
 
     const room = pg.bedsSummary[roomType];
+
     if (!room || room.available <= 0)
-      return res.json({ success: false, message: "No beds available" });
+      return res.status(400).json({ success: false, message: "No beds available" });
 
     res.json({
       success: true,
@@ -44,27 +40,26 @@ export const checkAvailability = async (req, res) => {
     });
 
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/* ===========================
-   Create Booking
-=========================== */
+/* Create Booking */
+
 export const createBooking = async (req, res) => {
   try {
     const { pgId, roomType, months, startDate } = req.body;
 
     if (!pgId || !roomType || !months || !startDate)
-      return res.json({ success: false, message: "All fields required" });
+      return res.status(400).json({ success: false, message: "All fields required" });
 
     if (!isValidRoomType(roomType))
-      return res.json({ success: false, message: "Invalid room type" });
+      return res.status(400).json({ success: false, message: "Invalid room type" });
 
     const pg = await getPg(pgId);
 
     if (pg.bedsSummary[roomType].available <= 0)
-      return res.json({ success: false, message: "No beds available" });
+      return res.status(400).json({ success: false, message: "No beds available" });
 
     const rentPerMonth = pg.roomConfig[roomType].price;
 
@@ -81,37 +76,34 @@ export const createBooking = async (req, res) => {
     res.json({ success: true, data: booking });
 
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/* ===========================
-   List User Bookings
-=========================== */
+/* User Bookings */
+
 export const listUserBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ user: req.user.id })
       .populate({
-  path: "pg",
-  select: "name location images owner",
-  populate: {
-    path: "owner",
-    select: "name email phone"
-  }
-})
-
+        path: "pg",
+        select: "name location images owner phone",
+        populate: {
+          path: "owner",
+          select: "name email phone "
+        }
+      })
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: bookings });
 
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/* ===========================
-   Owner Bookings
-=========================== */
+/* Owner Bookings */
+
 export const getOwnerBookings = async (req, res) => {
   try {
     const pgIds = await Pg.find({ owner: req.user.id }).distinct("_id");
@@ -121,39 +113,36 @@ export const getOwnerBookings = async (req, res) => {
       .populate("pg", "name location")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, bookings });
+    res.json({ success: true, data: bookings });
 
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/* ===========================
-   Change Booking Status
-=========================== */
+/* Change Booking Status */
+
 export const changeBookingStatus = async (req, res) => {
   try {
     const { bookingId, status } = req.body;
 
     if (!bookingId || !["confirmed", "cancelled"].includes(status))
-      return res.json({ success: false, message: "Invalid request" });
+      return res.status(400).json({ success: false, message: "Invalid request" });
 
     const booking = await Booking.findById(bookingId).populate("pg");
+
     if (!booking)
-      return res.json({ success: false, message: "Booking not found" });
+      return res.status(404).json({ success: false, message: "Booking not found" });
 
     if (booking.pg.owner.toString() !== req.user.id)
-      return res.json({ success: false, message: "Unauthorized" });
-
-    if (booking.status === status)
-      return res.json({ success: false, message: "Already updated" });
+      return res.status(403).json({ success: false, message: "Unauthorized" });
 
     const pg = await Pg.findById(booking.pg._id);
     const roomType = booking.roomType;
 
     if (status === "confirmed") {
       if (pg.bedsSummary[roomType].available <= 0)
-        return res.json({ success: false, message: "No beds available" });
+        return res.status(400).json({ success: false, message: "No beds available" });
 
       pg.bedsSummary[roomType].available -= 1;
     }
@@ -170,88 +159,11 @@ export const changeBookingStatus = async (req, res) => {
     res.json({ success: true, message: "Status updated" });
 
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// export const deleteBooking = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-
-//     const booking = await Booking.findById(id);
-
-//     if (!booking) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Booking not found"
-//       });
-//     }
-
-//     // Optional: Only owner or student can delete
-//     if (
-//       booking.user.toString() !== req.user.id &&
-//       booking.owner.toString() !== req.user.id
-//     ) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Unauthorized"
-//       });
-//     }
-
-//     await Booking.findByIdAndDelete(id);
-
-//     res.json({
-//       success: true,
-//       message: "Booking deleted successfully"
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message
-//     });
-//   }
-// };
-
-/* =========================================
-   Delete Booking (Owner)
-========================================= */
-// export const deleteBooking = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-
-//     const booking = await Booking.findById(id).populate("pg");
-
-//     if (!booking) {
-//       return res.json({
-//         success: false,
-//         message: "Booking not found"
-//       });
-//     }
-
-//     // Only owner of that PG can delete
-//     if (booking.pg.owner.toString() !== req.user.id) {
-//       return res.json({
-//         success: false,
-//         message: "Unauthorized"
-//       });
-//     }
-
-//     await Booking.findByIdAndDelete(id);
-
-//     res.json({
-//       success: true,
-//       message: "Booking deleted successfully"
-//     });
-
-//   } catch (error) {
-//     res.json({
-//       success: false,
-//       message: error.message
-//     });
-//   }
-// };
-
+/* Delete Booking */
 
 export const deleteBooking = async (req, res) => {
   try {
@@ -260,10 +172,10 @@ export const deleteBooking = async (req, res) => {
     const booking = await Booking.findById(id).populate("pg");
 
     if (!booking)
-      return res.json({ success: false, message: "Booking not found" });
+      return res.status(404).json({ success: false, message: "Booking not found" });
 
     if (booking.pg.owner.toString() !== req.user.id)
-      return res.json({ success: false, message: "Unauthorized" });
+      return res.status(403).json({ success: false, message: "Unauthorized" });
 
     const pg = await Pg.findById(booking.pg._id);
 
@@ -274,12 +186,9 @@ export const deleteBooking = async (req, res) => {
 
     await booking.deleteOne();
 
-    res.json({
-      success: true,
-      message: "Booking deleted successfully"
-    });
+    res.json({ success: true, message: "Booking deleted successfully" });
 
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };

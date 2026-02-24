@@ -21,7 +21,8 @@ const PgSchema = new mongoose.Schema(
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: true,
+      index: true
     },
 
     name: {
@@ -33,7 +34,8 @@ const PgSchema = new mongoose.Schema(
     location: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      index: true
     },
 
     description: {
@@ -47,13 +49,27 @@ const PgSchema = new mongoose.Schema(
     },
 
     images: {
-      type: [String], // store image URLs (Cloudinary or local path)
+      type: [String],
       default: []
     },
 
     isAvailable: {
       type: Boolean,
-      default: true
+      default: true,
+      index: true
+    },
+
+    phone: {
+  type: String,
+  required: false,
+  default: "",
+  trim: true
+},
+
+    isGirlsPg: {
+      type: Boolean,
+      default: false,
+      index: true
     },
 
     roomConfig: {
