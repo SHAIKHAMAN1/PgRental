@@ -6,7 +6,8 @@ import {
   getDashboardData,
   getOwnerPgs,
   togglePgAvailability,
-  updateUserImage
+  updateUserImage,
+  updatePg
 } from "../controllers/ownerController.js";
 
 import { protect } from "../middleware/auth.js";
@@ -29,6 +30,7 @@ ownerRouter.delete("/delete-pg/:pgId", protect, deletePg);
 /* Dashboard */
 ownerRouter.get("/dashboard", protect, getDashboardData);
 
+ownerRouter.put("/update-pg/:pgId", protect, updatePg);   // ✅ ADD THIS
 /* Profile */
 ownerRouter.post(
   "/update-image",

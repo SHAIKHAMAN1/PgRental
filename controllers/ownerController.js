@@ -342,3 +342,76 @@ export const getAllPgs = async (req, res) => {
   }
 };
 
+/* =========================================
+   Update PG (Edit Mode)
+========================================= */
+export const updatePg = async (req, res) => {
+  try {
+    const { pgId } = req.params;
+
+    const pg = await Pg.findById(pgId);
+
+    if (!pg) {
+      return res.status(404).json({
+        success: false,
+        message: "PG not found"
+      });
+    }
+
+    // Owner validation
+    if (!pg.owner.equals(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+
+    const updatedData = req.body;
+
+    const sharingMap = { single: 1, double: 2, triple: 3 };
+    const newBedsSummary = {};
+
+    // 🔥 SAFE BED RECALCULATION
+    Object.keys(sharingMap).forEach((type) => {
+      const newRooms = updatedData.roomConfig[type]?.rooms || 0;
+      const newTotalBeds = newRooms * sharingMap[type];
+
+      const oldTotalBeds = pg.bedsSummary[type]?.total || 0;
+      const oldAvailableBeds = pg.bedsSummary[type]?.available || 0;
+
+      const occupiedBeds = oldTotalBeds - oldAvailableBeds;
+
+      if (newTotalBeds < occupiedBeds) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot reduce ${type} beds below occupied count`
+        });
+      }
+
+      newBedsSummary[type] = {
+        total: newTotalBeds,
+        available: newTotalBeds - occupiedBeds
+      };
+    });
+
+    const updatedPg = await Pg.findByIdAndUpdate(
+      pgId,
+      {
+        ...updatedData,
+        bedsSummary: newBedsSummary
+      },
+      { new: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: updatedPg
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
