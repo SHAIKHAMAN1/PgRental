@@ -50,18 +50,61 @@ export const createBooking = async (req, res) => {
   try {
     const { pgId, roomType, months, startDate } = req.body;
 
-    if (!pgId || !roomType || !months || !startDate)
-      return res.status(400).json({ success: false, message: "All fields required" });
+    if (!pgId || !months || !startDate)
+      return res.status(400).json({ success: false, message: "Missing fields" });
 
-    if (!isValidRoomType(roomType))
+    const pg = await Pg.findById(pgId);
+
+    if (!pg)
+      return res.status(404).json({ success: false, message: "PG not found" });
+
+    /* ================= ROOM BOOKING ================= */
+    if (pg.type === "room") {
+
+      if (pg.occupants.current >= pg.occupants.max)
+        return res.status(400).json({ success: false, message: "Room full" });
+
+      pg.occupants.current += 1;
+      await pg.save();
+
+      const rentPerMonth = pg.roomConfig?.single?.price || 0;
+
+      const booking = await Booking.create({
+        user: req.user.id,
+        pg: pgId,
+        startDate,
+        months,
+        rentPerMonth,
+        totalAmount: rentPerMonth * months,
+        status: "confirmed"
+      });
+
+      return res.json({ success: true, data: booking });
+    }
+
+    /* ================= PG BOOKING ================= */
+
+    if (!roomType)
+      return res.status(400).json({ success: false, message: "Room type required" });
+
+    if (!["single", "double", "triple"].includes(roomType))
       return res.status(400).json({ success: false, message: "Invalid room type" });
 
-    const pg = await getPg(pgId);
+    const updatedPg = await Pg.findOneAndUpdate(
+      {
+        _id: pgId,
+        [`bedsSummary.${roomType}.available`]: { $gt: 0 }
+      },
+      {
+        $inc: { [`bedsSummary.${roomType}.available`]: -1 }
+      },
+      { new: true }
+    );
 
-    if (pg.bedsSummary[roomType].available <= 0)
+    if (!updatedPg)
       return res.status(400).json({ success: false, message: "No beds available" });
 
-    const rentPerMonth = pg.roomConfig[roomType].price;
+    const rentPerMonth = updatedPg.roomConfig[roomType].price;
 
     const booking = await Booking.create({
       user: req.user.id,
@@ -70,7 +113,8 @@ export const createBooking = async (req, res) => {
       startDate,
       months,
       rentPerMonth,
-      totalAmount: rentPerMonth * months
+      totalAmount: rentPerMonth * months,
+      status: "confirmed"
     });
 
     res.json({ success: true, data: booking });

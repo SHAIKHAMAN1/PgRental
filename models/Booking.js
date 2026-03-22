@@ -20,7 +20,7 @@ const bookingSchema = new mongoose.Schema(
     roomType: {
       type: String,
       enum: ["single", "double", "triple"],
-      required: true
+      required: false
     },
 
     // Start date of stay

@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+/* ---------------- ROOM CONFIG ---------------- */
+
 const roomSchema = new mongoose.Schema(
   {
     rooms: { type: Number, default: 0 },
@@ -7,6 +9,8 @@ const roomSchema = new mongoose.Schema(
   },
   { _id: false }
 );
+
+/* ---------------- BED SUMMARY ---------------- */
 
 const bedSummarySchema = new mongoose.Schema(
   {
@@ -16,8 +20,11 @@ const bedSummarySchema = new mongoose.Schema(
   { _id: false }
 );
 
+/* ---------------- MAIN SCHEMA ---------------- */
+
 const PgSchema = new mongoose.Schema(
   {
+    /* 🔑 OWNER */
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -25,6 +32,7 @@ const PgSchema = new mongoose.Schema(
       index: true
     },
 
+    /* 🏠 BASIC INFO */
     name: {
       type: String,
       required: true,
@@ -43,28 +51,33 @@ const PgSchema = new mongoose.Schema(
       default: ""
     },
 
-    amenities: {
-      type: [String],
-      default: []
+    /* 🔥 TYPE (IMPORTANT ADDITION) */
+    type: {
+      type: String,
+      enum: ["pg", "room"],
+      default: "pg",
+      index: true
     },
 
+    /* 🧾 CONTACT */
+    phone: {
+      type: String,
+      default: "",
+      trim: true
+    },
+
+    /* 🖼️ MEDIA */
     images: {
       type: [String],
       default: []
     },
 
+    /* ⚙️ FLAGS */
     isAvailable: {
       type: Boolean,
       default: true,
       index: true
     },
-
-    phone: {
-  type: String,
-  required: false,
-  default: "",
-  trim: true
-},
 
     isGirlsPg: {
       type: Boolean,
@@ -72,16 +85,36 @@ const PgSchema = new mongoose.Schema(
       index: true
     },
 
+    /* 🛠️ AMENITIES */
+    amenities: {
+      type: [String],
+      default: []
+    },
+
+    /* 🛏️ ROOM CONFIG */
     roomConfig: {
       single: { type: roomSchema, default: () => ({}) },
       double: { type: roomSchema, default: () => ({}) },
       triple: { type: roomSchema, default: () => ({}) }
     },
 
+    /* 🧮 BED SUMMARY */
     bedsSummary: {
       single: { type: bedSummarySchema, default: () => ({}) },
       double: { type: bedSummarySchema, default: () => ({}) },
       triple: { type: bedSummarySchema, default: () => ({}) }
+    },
+
+    /* 🔥 ROOMMATE FEATURE (NEW) */
+    occupants: {
+      current: {
+        type: Number,
+        default: 0
+      },
+      max: {
+        type: Number,
+        default: 1
+      }
     }
   },
   { timestamps: true }
